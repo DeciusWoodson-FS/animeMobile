@@ -13,6 +13,8 @@ import {
   SafeAreaView,
 } from "react-native";
 
+const API_BASE = "http://localhost:3000";
+
 export default function Quote() {
   const [quotes, setQuotes] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -274,7 +276,7 @@ export default function Quote() {
           data={quotes}
           keyExtractor={(item) => item._id || Math.random().toString()}
           renderItem={renderItem}
-          ListHeaderComponent={renderForm}
+          ListHeaderComponent={renderForm()}
           contentContainerStyle={styles.listContent}
           ListEmptyComponent={
             <Text style={styles.emptyText}>
