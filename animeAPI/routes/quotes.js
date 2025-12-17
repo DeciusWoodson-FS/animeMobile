@@ -1,4 +1,8 @@
 const express = require("express");
+const passport = require("passport");
+
+const passportService = require("../services/passport");
+const protectedRoute = passport.authenticate("jwt", { session: false });
 const router = express.Router();
 
 const Quote = require("../models/quote");
@@ -20,7 +24,7 @@ const getQuote = async (req, res, next) => {
 };
 
 // GET all quotes
-router.get("/", async (req, res) => {
+router.get("/", protectedRoute, async (req, res) => {
   try {
     const quotes = await Quote.find();
     res.json(quotes);
