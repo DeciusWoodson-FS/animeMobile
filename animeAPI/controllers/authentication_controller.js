@@ -13,6 +13,11 @@ const tokenForUser = (user) => {
   );
 };
 
+exports.signin = (req, res, next) => {
+  const user = req.user;
+  res.send({ token: tokenForUser(user), user_id: user._id });
+};
+
 exports.signup = (req, res, next) => {
   const { email, password } = req.body;
   if (!email || !password) {
