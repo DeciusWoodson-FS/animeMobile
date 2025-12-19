@@ -3,6 +3,8 @@ require("dotenv").config();
 const mongoose = require("mongoose");
 const path = require("path");
 const cors = require("cors");
+const morgan = require("morgan");
+
 const app = express();
 
 const PORT = process.env.PORT || 3000;
@@ -18,6 +20,7 @@ const db = mongoose.connection;
 db.on("error", (error) => console.error(error));
 db.once("open", () => console.log("Connected to Database"));
 
+app.use(morgan("dev"));
 app.use(cors());
 app.use(express.json());
 app.use("/quotes", quoteRouter);

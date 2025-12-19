@@ -6,6 +6,8 @@ import React from "react";
 
 import Home from "./pages/Home";
 import Quote from "./pages/Quote";
+import Auth from "./pages/Auth";
+import { StackScreen } from "react-native-screens";
 
 const Stack = createNativeStackNavigator();
 
@@ -15,7 +17,7 @@ export default function App() {
       <StatusBar style="light" />
       <NavigationContainer>
         <Stack.Navigator
-          initialRouteName="Home"
+          initialRouteName="Auth"
           screenOptions={{
             headerStyle: {
               backgroundColor: "#000000",
@@ -26,6 +28,12 @@ export default function App() {
             },
           }}
         >
+          <Stack.Screen
+            name="Auth"
+            component={Auth}
+            options={{ headerShown: false }}
+          />
+
           <Stack.Screen
             name="Home"
             component={Home}

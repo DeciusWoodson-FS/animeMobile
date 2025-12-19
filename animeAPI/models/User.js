@@ -1,5 +1,5 @@
 const mongoose = require("mongoose");
-const bcrpyt = require("bcrypt-nodejs");
+const bcrypt = require("bcryptjs");
 
 const validateEmail = (email) => {
   return /^\S+@\S+\.\S+$/.test(email);
@@ -27,12 +27,11 @@ const userSchema = new mongoose.Schema({
 userSchema.pre("save", function (next) {
   const user = this;
   if (user.isNew || user.isModified("password")) {
-    // run hashing and salting
-    bcrpyt.genSalt(10, (error, salt) => {
+    bcrypt.genSalt(10, (error, salt) => {
       if (error) {
         return next(error);
       }
-      bcrpyt.hash(user.password, salt, null, (error, hash) => {
+      bcrypt.hash(user.password, salt, (error, hash) => {
         if (error) {
           return next(error);
         }
@@ -41,13 +40,12 @@ userSchema.pre("save", function (next) {
       });
     });
   } else {
-    // skip hashing and salting
     next();
   }
 });
 
 userSchema.methods.comparePassword = function (candidatePassword, callback) {
-  bcrpyt.compare(candidatePassword, this.password, function (error, isMatch) {
+  bcrypt.compare(candidatePassword, this.password, function (error, isMatch) {
     if (error) {
       return callback(error);
     }
