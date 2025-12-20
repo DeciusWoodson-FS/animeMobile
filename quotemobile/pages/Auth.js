@@ -7,34 +7,44 @@ import {
   Pressable,
   Alert,
   KeyboardAvoidingView,
-  Platform,
+  Platform, // Checks if on Web or Mobile
 } from "react-native";
 import * as SecureStore from "expo-secure-store";
-import Constants from "expo-constants";
 
-// --- API URL LOGIC ---
+// ----- API Config
 const getApiUrl = () => {
-  const debuggerHost =
-    Constants.expoConfig?.hostUri ||
-    Constants.manifest2?.extra?.expoGo?.debuggerHost;
-  if (debuggerHost) {
-    const ip = debuggerHost.split(":")[0];
-    return `http://${ip}:3000`;
+  if (Platform.OS === "web") {
+    return "http://localhost:3000";
   }
-  return "http://localhost:3000";
+  // For iOS Simulator, use your IP address below before the :3000
+  return "http://:3000"; // <-- Put IP here
 };
+
 const API_BASE = getApiUrl();
-// -----------------------------
+
+// ---------------------------------------------------------
 
 export default function Auth({ navigation }) {
-  const [isLogin, setIsLogin] = useState(true); // Toggle between Login and Signup
+  const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const saveToken = async (token) => {
+    if (Platform.OS === "web") {
+      localStorage.setItem("user_token", token);
+    } else {
+      await SecureStore.setItemAsync("user_token", token);
+    }
+  };
+
   const handleSubmit = async () => {
     if (!email || !password) {
-      Alert.alert("Error", "Please fill in all fields");
+      if (Platform.OS === "web") {
+        window.alert("Please fill in all fields");
+      } else {
+        Alert.alert("Error", "Please fill in all fields");
+      }
       return;
     }
 
@@ -42,6 +52,8 @@ export default function Auth({ navigation }) {
     const endpoint = isLogin ? "/auth/signin" : "/auth";
 
     try {
+      console.log(`Connecting to: ${API_BASE}${endpoint}`); // Debug Log
+
       const response = await fetch(`${API_BASE}${endpoint}`, {
         method: "POST",
         headers: {
@@ -56,15 +68,26 @@ export default function Auth({ navigation }) {
         throw new Error(data.error || "Authentication failed");
       }
 
-      // 1. Store the token securely
-      await SecureStore.setItemAsync("user_token", data.token);
+      // Save token securely based on platform
+      await saveToken(data.token);
 
-      // 2. Navigate to the main app
-      Alert.alert("Success", `Welcome!`, [
-        { text: "OK", onPress: () => navigation.replace("Quote") },
-      ]);
+      // Handle Navigation
+      if (Platform.OS === "web") {
+        navigation.replace("Quote");
+      } else {
+        Alert.alert("Success", `Welcome!`, [
+          { text: "OK", onPress: () => navigation.replace("Quote") },
+        ]);
+      }
     } catch (error) {
-      Alert.alert("Error", error.message);
+      console.error("Auth Error:", error);
+      const msg = error.message || "Network request failed";
+
+      if (Platform.OS === "web") {
+        window.alert(msg);
+      } else {
+        Alert.alert("Error", msg);
+      }
     } finally {
       setLoading(false);
     }
@@ -137,6 +160,9 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
     borderColor: "#333",
+    maxWidth: 500,
+    width: "100%",
+    alignSelf: "center",
   },
   title: {
     fontSize: 28,

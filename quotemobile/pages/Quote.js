@@ -12,8 +12,19 @@ import {
   Platform,
   SafeAreaView,
 } from "react-native";
+import * as SecureStore from "expo-secure-store";
 
-const API_BASE = "http://localhost:3000";
+// -------- API Config
+const getApiUrl = () => {
+  if (Platform.OS === "web") {
+    return "http://localhost:3000";
+  }
+  // For IOS simulator put in IP address below before the :3000
+  return "http://:3000"; // <--- Put IP here
+};
+
+const API_BASE = getApiUrl();
+// ---------------------------------------------------------
 
 export default function Quote() {
   const [quotes, setQuotes] = useState([]);
@@ -27,21 +38,30 @@ export default function Quote() {
     quote: "",
   });
 
-  useEffect(() => {
-    let ignore = false;
-    if (!ignore) {
-      getQuotes();
+  // Get token
+  const getToken = async () => {
+    if (Platform.OS === "web") {
+      return localStorage.getItem("user_token");
     }
-    return () => {
-      ignore = true;
-    };
+    return await SecureStore.getItemAsync("user_token");
+  };
+
+  useEffect(() => {
+    getQuotes();
   }, []);
 
   const getQuotes = async () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`${API_BASE}/quotes`);
+      const token = await getToken();
+
+      const response = await fetch(`${API_BASE}/quotes`, {
+        headers: {
+          Authorization: token || "", // Send token if one is found
+        },
+      });
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -51,11 +71,13 @@ export default function Quote() {
       const errorMessage = error.message || "Failed to fetch quotes";
       setError(errorMessage);
       console.error("Fetch error:", error);
-      Alert.alert(
-        "Connection Error",
-        `Could not connect to API at ${API_BASE}\n\nMake sure your API server is running.\n\nError: ${errorMessage}`,
-        [{ text: "OK" }]
-      );
+
+      // Platform-safe Alert
+      if (Platform.OS === "web") {
+        console.warn(errorMessage);
+      } else {
+        Alert.alert("Connection Error", errorMessage);
+      }
     } finally {
       setLoading(false);
     }
@@ -63,44 +85,54 @@ export default function Quote() {
 
   const createQuote = async () => {
     if (!values.character || !values.anime || !values.quote) {
-      Alert.alert("Validation Error", "Please fill in all fields");
+      if (Platform.OS === "web") {
+        window.alert("Please fill in all fields");
+      } else {
+        Alert.alert("Validation Error", "Please fill in all fields");
+      }
       return;
     }
 
     try {
+      const token = await getToken();
+
       const response = await fetch(`${API_BASE}/quotes`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: token || "",
         },
         body: JSON.stringify(values),
       });
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       setValues({ character: "", anime: "", quote: "" });
       getQuotes();
     } catch (error) {
-      const errorMessage = error.message || "Failed to create quote";
-      setError(errorMessage);
-      Alert.alert("Error", `Failed to create quote: ${errorMessage}`);
+      const msg = error.message || "Failed to create quote";
+      if (Platform.OS === "web") {
+        window.alert(msg);
+      } else {
+        Alert.alert("Error", msg);
+      }
     }
   };
 
   const updateQuote = async (id) => {
-    if (!values.character || !values.anime || !values.quote) {
-      Alert.alert("Validation Error", "Please fill in all fields");
-      return;
-    }
-
     try {
+      const token = await getToken();
+
       const response = await fetch(`${API_BASE}/quotes/${id}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
+          Authorization: token || "",
         },
         body: JSON.stringify(values),
       });
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -108,45 +140,49 @@ export default function Quote() {
       setValues({ character: "", anime: "", quote: "" });
       getQuotes();
     } catch (error) {
-      const errorMessage = error.message || "Failed to update quote";
-      setError(errorMessage);
-      Alert.alert("Error", `Failed to update quote: ${errorMessage}`);
+      const msg = error.message || "Failed to update quote";
+      if (Platform.OS === "web") window.alert(msg);
+      else Alert.alert("Error", msg);
     }
   };
 
   const deleteQuote = (id) => {
-    Alert.alert("Delete Quote", "Are you sure you want to delete this quote?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await fetch(`${API_BASE}/quotes/${id}`, {
-              method: "DELETE",
-            });
-            getQuotes();
-          } catch (error) {
-            setError(error.message || "Unexpected Error");
-          }
-        },
-      },
-    ]);
-  };
+    const performDelete = async () => {
+      try {
+        const token = await getToken();
+        await fetch(`${API_BASE}/quotes/${id}`, {
+          method: "DELETE",
+          headers: { Authorization: token || "" },
+        });
+        getQuotes();
+      } catch (error) {
+        setError(error.message || "Unexpected Error");
+      }
+    };
 
-  const handleSubmit = () => {
-    if (editingId) {
-      updateQuote(editingId);
+    if (Platform.OS === "web") {
+      if (window.confirm("Are you sure you want to delete this quote?")) {
+        performDelete();
+      }
     } else {
-      createQuote();
+      Alert.alert(
+        "Delete Quote",
+        "Are you sure you want to delete this quote?",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Delete", style: "destructive", onPress: performDelete },
+        ]
+      );
     }
   };
 
+  const handleSubmit = () => {
+    if (editingId) updateQuote(editingId);
+    else createQuote();
+  };
+
   const handleChange = (name, text) => {
-    setValues((prev) => ({
-      ...prev,
-      [name]: text,
-    }));
+    setValues((prev) => ({ ...prev, [name]: text }));
   };
 
   const startEdit = (quote) => {
@@ -163,6 +199,7 @@ export default function Quote() {
     setValues({ character: "", anime: "", quote: "" });
   };
 
+  // Render form
   const renderForm = () => (
     <View style={styles.formContainer}>
       <Text style={styles.headerTitle}>
@@ -312,6 +349,9 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
     borderColor: "#333",
+    maxWidth: 600,
+    width: "100%",
+    alignSelf: "center",
   },
   headerTitle: {
     fontSize: 28,
@@ -390,6 +430,9 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     borderWidth: 1,
     borderColor: "#333",
+    maxWidth: 600,
+    width: "100%",
+    alignSelf: "center",
   },
   cardCharacter: {
     color: "#6200ee",
