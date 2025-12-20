@@ -20,7 +20,7 @@ const getApiUrl = () => {
   return "http://:3000"; // <-- Put IP here
 };
 
-const API_BASE = "http://anime-api-tau-five.vercel.app";
+const API_BASE = "https://anime-api-tau-five.vercel.app";
 
 // ---------------------------------------------------------
 
